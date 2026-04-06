@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Performance Lab — Flow Nutrition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & TOKENS ─────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#1C2B1E; --cream:#F5F0E8; --accent:#4A7C59;
+  --error:#C0392B; --warn:#D4A017; --gold:#C9A84C;
+  --card-bg:rgba(255,255,255,.05); --card-border:rgba(245,240,232,.12);
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --sans:'Jost',sans-serif;
+}
+html{scroll-behavior:smooth;overflow-anchor:none;}
+body{
+  font-family:var(--sans);font-weight:300;
+  background:var(--bg);color:var(--cream);
+  min-height:100vh;overflow-x:hidden;overflow-anchor:none;
+}
+/* grain */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── PROGRESS BAR (fixed) ───────────────────────── */
+#prog-wrap{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  background:rgba(28,43,30,.96);backdrop-filter:blur(8px);
+  padding:10px 20px 8px;
+  border-bottom:1px solid rgba(201,168,76,.1);
+  display:none;
+}
+#prog-wrap.on{display:block;}
+.prog-track{background:rgba(255,255,255,.1);border-radius:2px;height:3px;overflow:hidden;}
+#prog-fill{height:100%;background:var(--gold);border-radius:2px;width:0%;transition:width .5s ease;}
+#prog-lbl{font-size:.65rem;letter-spacing:.08em;color:rgba(245,240,232,.45);margin-top:5px;text-align:right;}
+
+/* ─── APP WRAPPER ────────────────────────────────── */
+.app{max-width:480px;margin:0 auto;position:relative;}
+
+/* ─── SCREENS ────────────────────────────────────── */
+.screen{
+  display:none;opacity:0;transition:opacity .28s ease;
+  padding:72px 24px 48px;
+  position:fixed;top:0;bottom:0;
+  left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  overflow-y:auto;overflow-x:hidden;
+  z-index:10;
+  scrollbar-width:none;
+}
+.screen::-webkit-scrollbar{display:none;}
+.screen.active{display:block;}
+#s0.active{display:flex;}
+#s0{
+  padding:24px;
+  flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;
+  overflow:hidden;
+}
+
+/* ─── LOGO ───────────────────────────────────────── */
+.logo{
+  text-align:center;font-family:var(--serif);font-size:1rem;
+  font-weight:600;letter-spacing:.12em;color:var(--cream);
+  margin-bottom:28px;opacity:.9;
+}
+.logo.top{margin-top:0;}
+
+/* ─── TYPOGRAPHY ─────────────────────────────────── */
+h1,h2{font-family:var(--serif);font-weight:700;line-height:1.15;color:var(--cream);}
+
+/* ─── DRA. FLOW CARD ──────────────────────────────── */
+.dra{
+  background:rgba(74,124,89,.1);border-left:3px solid var(--gold);
+  border-radius:0 12px 12px 0;padding:14px 16px;margin:16px 0;
+}
+.dra-hd{font-size:.75rem;font-weight:500;color:var(--gold);margin-bottom:6px;letter-spacing:.04em;}
+.dra p{font-size:.86rem;line-height:1.7;color:rgba(245,240,232,.82);font-style:italic;}
+.micro{font-style:italic;font-size:.76rem;color:rgba(245,240,232,.55);margin-bottom:14px;line-height:1.6;}
+
+/* ─── BUTTONS ─────────────────────────────────────── */
+.btn{
+  display:block;width:100%;background:var(--accent);color:var(--cream);
+  border:none;border-radius:10px;padding:15px 22px;
+  font-family:var(--sans);font-size:.92rem;font-weight:500;
+  letter-spacing:.04em;cursor:pointer;transition:background .2s,transform .1s;
+  text-align:center;text-decoration:none;
+}
+.btn:hover{background:#559e6a;}
+.btn:active{transform:scale(.98);}
+.btn.ghost{background:transparent;border:1px solid rgba(245,240,232,.18);color:rgba(245,240,232,.6);font-size:.82rem;padding:12px 22px;}
+.btn.ghost:hover{border-color:rgba(245,240,232,.35);color:var(--cream);background:transparent;}
+.btn.wa{background:#25D366;color:#fff;}
+.btn.wa:hover{background:#1fb85a;}
+.btn.ig{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--gold);}
+.btn.ig:hover{background:rgba(201,168,76,.2);}
+.btn.dim{background:rgba(255,255,255,.07);border:1px solid rgba(245,240,232,.12);color:rgba(245,240,232,.8);}
+.btn.dim:hover{background:rgba(255,255,255,.12);}
+
+/* ─── ICON CARDS ──────────────────────────────────── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
+.grid.col1{grid-template-columns:1fr;}
+.card{
+  background:var(--card-bg);border:1px solid var(--card-border);
+  border-radius:12px;padding:15px 12px;cursor:pointer;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+  text-align:center;user-select:none;
+}
+.card:hover{border-color:rgba(245,240,232,.3);transform:scale(1.02);}
+.card.sel{border-color:var(--gold);background:rgba(201,168,76,.07);box-shadow:0 0 14px rgba(201,168,76,.12);}
+.card em{font-size:1.5rem;display:block;margin-bottom:7px;line-height:1;font-style:normal;}
+.card span{font-size:.76rem;color:rgba(245,240,232,.85);line-height:1.4;}
+
+/* ─── SLIDERS ─────────────────────────────────────── */
+.sldwrap{margin:14px 0 22px;position:relative;padding-top:32px;}
+.sld-lbl{
+  display:inline-block;background:var(--gold);color:#1C2B1E;
+  font-size:.75rem;font-weight:500;padding:3px 9px;border-radius:20px;
+  position:absolute;top:0;transform:translateX(-50%);
+  pointer-events:none;white-space:nowrap;transition:left .08s;
+}
+.sld-lbl::after{
+  content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+  border:4px solid transparent;border-top-color:var(--gold);border-bottom:none;
+}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:4px;border-radius:2px;outline:none;cursor:pointer;
+  background:rgba(255,255,255,.15);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:22px;height:22px;background:var(--gold);border-radius:50%;
+  cursor:pointer;box-shadow:0 2px 8px rgba(201,168,76,.45);transition:box-shadow .2s;
+}
+input[type=range]::-webkit-slider-thumb:hover{box-shadow:0 2px 16px rgba(201,168,76,.7);}
+input[type=range]::-moz-range-thumb{
+  width:22px;height:22px;background:var(--gold);border-radius:50%;
+  border:none;cursor:pointer;box-shadow:0 2px 8px rgba(201,168,76,.45);
+}
+.sld-ends{display:flex;justify-content:space-between;margin-top:8px;}
+.sld-ends span{font-size:.62rem;color:rgba(245,240,232,.4);text-align:center;max-width:70px;line-height:1.3;}
+
+/* ─── FORM ────────────────────────────────────────── */
+.fgrp{margin-bottom:18px;}
+.flbl{display:block;font-size:.84rem;font-weight:500;color:rgba(245,240,232,.88);margin-bottom:7px;}
+input[type=text],input[type=number],input[type=email]{
+  width:100%;background:rgba(255,255,255,.06);
+  border:1px solid var(--card-border);border-radius:10px;
+  padding:12px 15px;color:var(--cream);
+  font-family:var(--sans);font-size:.92rem;font-weight:300;
+  outline:none;transition:border-color .2s;-webkit-appearance:none;
+}
+input[type=text]:focus,input[type=number]:focus,input[type=email]:focus{border-color:rgba(201,168,76,.45);}
+input::placeholder{color:rgba(245,240,232,.28);}
+.sex-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:7px 0;}
+
+/* ─── QUESTION COMPONENTS ─────────────────────────── */
+.dim{font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);opacity:.8;margin-bottom:5px;font-weight:500;}
+.qtitle{font-family:var(--serif);font-size:1.28rem;font-weight:600;line-height:1.25;margin-bottom:10px;}
+.qdiv{height:1px;background:rgba(245,240,232,.07);margin:22px 0;}
+
+/* ─── WELCOME SCREEN ──────────────────────────────── */
+#s0{min-height:100%;}
+.wbg{position:absolute;inset:0;z-index:0;overflow:hidden;}
+.wbg::before{
+  content:'';position:absolute;width:600px;height:600px;
+  background:radial-gradient(ellipse,rgba(74,124,89,.22) 0%,transparent 68%);
+  top:-150px;left:-150px;animation:mf1 9s ease-in-out infinite alternate;
+}
+.wbg::after{
+  content:'';position:absolute;width:450px;height:450px;
+  background:radial-gradient(ellipse,rgba(201,168,76,.07) 0%,transparent 68%);
+  bottom:-100px;right:-100px;animation:mf2 11s ease-in-out infinite alternate;
+}
+@keyframes mf1{from{transform:translate(0,0) scale(1);}to{transform:translate(60px,90px) scale(1.25);}}
+@keyframes mf2{from{transform:translate(0,0) scale(1);}to{transform:translate(-50px,-70px) scale(1.2);}}
+.wcontent{position:relative;z-index:1;width:100%;}
+.wtitle{font-family:var(--serif);font-size:clamp(1.9rem,7vw,2.5rem);font-weight:700;line-height:1.1;margin-bottom:28px;}
+.particle{
+  position:absolute;border-radius:50%;background:rgba(74,124,89,.2);
+  animation:pfloat linear infinite;z-index:0;
+}
+@keyframes pfloat{
+  0%{transform:translateY(110vh) scale(0);opacity:0;}
+  10%{opacity:.5;}90%{opacity:.5;}
+  100%{transform:translateY(-60px) scale(1.1);opacity:0;}
+}
+
+/* ─── RESULTS SCREEN ──────────────────────────────── */
+.circle-wrap{display:flex;flex-direction:column;align-items:center;margin:12px 0 20px;position:relative;}
+.circle-wrap svg{filter:drop-shadow(0 0 18px rgba(74,124,89,.25));}
+.score-num-wrap{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.score-big{font-family:var(--serif);font-size:3.2rem;font-weight:700;line-height:1;color:var(--cream);}
+.score-max{font-size:.72rem;color:rgba(245,240,232,.38);}
+.cat-badge{
+  display:inline-block;padding:5px 16px;border-radius:20px;
+  font-size:.72rem;font-weight:500;letter-spacing:.08em;
+  margin-top:10px;text-transform:uppercase;
+}
+.sub-section{margin:20px 0;}
+.sub-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+.sub-icon{font-size:.95rem;width:20px;text-align:center;flex-shrink:0;}
+.sub-info{flex:1;}
+.sub-name{font-size:.72rem;color:rgba(245,240,232,.62);margin-bottom:4px;}
+.sub-track{background:rgba(255,255,255,.1);border-radius:2px;height:4px;overflow:hidden;}
+.sub-fill{height:100%;border-radius:2px;width:0%;transition:width 1s ease;}
+.sub-pct{font-size:.72rem;font-weight:500;color:rgba(245,240,232,.65);width:30px;text-align:right;flex-shrink:0;}
+.pri-section{margin:20px 0;}
+.sec-title{font-family:var(--serif);font-size:1.1rem;font-weight:600;margin-bottom:12px;color:var(--cream);}
+.pri-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid rgba(245,240,232,.07);}
+.pri-item:last-child{border-bottom:none;}
+.pri-icon{font-size:1.1rem;flex-shrink:0;}
+.pri-info h4{font-size:.83rem;font-weight:500;margin-bottom:2px;}
+.pri-info p{font-size:.75rem;color:rgba(245,240,232,.5);line-height:1.5;}
+.prod-card{
+  background:rgba(74,124,89,.08);border:1px solid rgba(201,168,76,.28);
+  border-radius:14px;padding:18px;margin:14px 0;
+}
+.prod-card.sec{border-color:rgba(245,240,232,.1);background:rgba(255,255,255,.04);}
+.prod-lbl{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:7px;font-weight:500;}
+.prod-name{font-family:var(--serif);font-size:1.45rem;font-weight:700;color:var(--cream);margin-bottom:7px;}
+.prod-card.sec .prod-name{font-size:1.2rem;}
+.prod-txt{font-size:.82rem;color:rgba(245,240,232,.72);line-height:1.65;font-style:italic;}
+.email-gate{
+  background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.18);
+  border-radius:14px;padding:22px 18px;margin:22px 0;
+}
+.email-gate h2{font-size:1.4rem;margin-bottom:10px;line-height:1.2;}
+.email-err{font-size:.73rem;color:var(--error);margin-top:6px;display:none;}
+.email-fp{font-size:.66rem;color:rgba(245,240,232,.3);text-align:center;margin-top:9px;}
+.email-ok{display:none;text-align:center;padding:14px;font-size:.88rem;color:var(--accent);font-weight:500;}
+.phase2{display:none;opacity:0;transition:opacity .4s ease;}
+.phase2.on{display:block;}
+.disc{
+  background:rgba(212,160,23,.06);border:1px solid rgba(212,160,23,.28);
+  border-radius:12px;padding:13px 15px;font-size:.8rem;
+  color:rgba(245,240,232,.72);line-height:1.6;margin:14px 0;
+}
+.cta-stack{display:flex;flex-direction:column;gap:9px;margin:18px 0;}
+.rfooter{
+  text-align:center;font-size:.65rem;color:rgba(245,240,232,.18);
+  letter-spacing:.06em;padding:20px 0 12px;
+  border-top:1px solid rgba(245,240,232,.06);margin-top:20px;
+}
+.mt8{margin-top:8px;}.mt12{margin-top:12px;}.mt16{margin-top:16px;}.mt20{margin-top:20px;}.mt24{margin-top:24px;}
+.err-msg{font-size:.74rem;color:var(--error);margin-top:6px;display:none;}
+
+/* ─── PROFILE CARD ───────────────────────────────── */
+.profile-card{
+  background:rgba(255,255,255,.04);border:1px solid rgba(245,240,232,.1);
+  border-radius:14px;padding:16px;margin-bottom:8px;
+}
+.profile-name{font-family:var(--serif);font-size:1.1rem;font-weight:600;margin-bottom:10px;}
+.profile-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.profile-stat{background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;}
+.ps-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,240,232,.4);margin-bottom:3px;}
+.ps-value{font-size:.82rem;font-weight:500;color:var(--cream);}
+.profile-type{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);
+  border-radius:20px;padding:5px 12px;
+  font-size:.7rem;color:var(--gold);font-weight:500;letter-spacing:.04em;
+}
+
+/* ─── DIMENSION DIAGNOSTIC ───────────────────────── */
+.dim-diag{
+  background:rgba(255,255,255,.03);border:1px solid rgba(245,240,232,.08);
+  border-radius:12px;padding:14px;margin-bottom:10px;
+}
+.dim-diag-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.dd-icon{font-size:1rem;flex-shrink:0;}
+.dd-name{font-size:.8rem;font-weight:500;color:rgba(245,240,232,.8);flex:1;}
+.dd-track{flex:2;background:rgba(255,255,255,.1);border-radius:2px;height:4px;overflow:hidden;}
+.dd-fill{height:100%;border-radius:2px;width:0%;transition:width 1s ease;}
+.dd-pct{font-size:.72rem;font-weight:500;width:30px;text-align:right;flex-shrink:0;}
+.dd-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dim-diag-txt{font-size:.78rem;color:rgba(245,240,232,.55);line-height:1.65;font-style:italic;padding-top:2px;}
+
+/* ─── INSIGHT CARDS ──────────────────────────────── */
+.insight-card{
+  display:flex;align-items:flex-start;gap:10px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(245,240,232,.07);
+  border-radius:12px;padding:13px;margin-bottom:9px;
+}
+.insight-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px;}
+.insight-txt{font-size:.79rem;color:rgba(245,240,232,.7);line-height:1.65;}
+
+/* ─── ACTION PLAN ────────────────────────────────── */
+.action-area{margin-bottom:18px;}
+.action-area-header{
+  display:flex;align-items:center;gap:8px;
+  font-size:.72rem;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--gold);opacity:.85;
+  margin-bottom:9px;
+}
+.action-tip{
+  display:flex;align-items:flex-start;gap:9px;
+  padding:10px 12px;margin-bottom:7px;
+  background:rgba(74,124,89,.07);border-left:2px solid rgba(74,124,89,.4);
+  border-radius:0 8px 8px 0;
+}
+.action-tip::before{content:'→';color:var(--accent);font-size:.8rem;flex-shrink:0;margin-top:1px;}
+.action-tip span{font-size:.8rem;color:rgba(245,240,232,.75);line-height:1.6;}
+
+/* ─── PRODUCT TIMING ─────────────────────────────── */
+.prod-timing{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
+  border-radius:20px;padding:4px 10px;
+  font-size:.66rem;color:rgba(201,168,76,.85);
+  margin-top:10px;font-weight:400;
+}
+</style>
+</head>
+<body>
+
+<!-- PROGRESS BAR -->
+<div id="prog-wrap">
+  <div class="prog-track"><div id="prog-fill"></div></div>
+  <div id="prog-lbl"></div>
+</div>
+
+<div class="app">
+
+<!-- ════════════════════════════════════
+     S0 — WELCOME
+════════════════════════════════════ -->
+<div class="screen" id="s0">
+  <div class="wbg"></div>
+  <div id="pcontainer"></div>
+  <div class="wcontent">
+    <div class="logo" style="margin-bottom:36px;">Flow Nutrition 🌿</div>
+    <h1 class="wtitle">Evaluación de Rendimiento Personalizada</h1>
+    <div class="dra">
+      <div class="dra-hd">🥼 Dra. Flow — Nutricionista</div>
+      <p>Hola, soy la Dra. Flow. En menos de 5 minutos voy a analizar tu rendimiento, recuperación y bienestar para darte recomendaciones reales y personalizadas.</p>
+    </div>
+    <button class="btn mt24" onclick="go('s1')">Comenzar evaluación →</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     S1 — MEDICAL FILTER
+════════════════════════════════════ -->
+<div class="screen" id="s1">
+  <div class="logo top">Flow Nutrition 🌿</div>
+  <div class="dra">
+    <div class="dra-hd">🥼 Dra. Flow</div>
+    <p>Para que tu evaluación sea segura y precisa, necesito saber una cosa antes de comenzar.</p>
+  </div>
+  <div class="qtitle">¿Tienes alguna condición de salud diagnosticada o tomas medicamentos regularmente?</div>
+  <div class="grid col1" id="med-cards">
+    <div class="card" onclick="pickMed('none',this)"><em>✅</em><span>No, estoy en buen estado de salud general</span></div>
+    <div class="card" onclick="pickMed('meds',this)"><em>💊</em><span>Tomo medicamentos bajo control médico</span></div>
+    <div class="card" onclick="pickMed('chronic',this)"><em>🏥</em><span>Tengo una condición crónica diagnosticada</span></div>
+    <div class="card" onclick="pickMed('pregnant',this)"><em>🤰</em><span>Estoy embarazada o en período de lactancia</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     S1B — PREGNANCY
+════════════════════════════════════ -->
+<div class="screen" id="s1b">
+  <div class="logo top">Flow Nutrition 🌿</div>
+  <div style="text-align:center;padding:40px 0 16px;">
+    <div style="font-size:3rem;margin-bottom:14px;">🌸</div>
+    <h2 style="font-size:1.75rem;margin-bottom:0;">Tu bienestar es nuestra prioridad</h2>
+  </div>
+  <div class="dra mt16">
+    <div class="dra-hd">🥼 Dra. Flow — Nutricionista</div>
+    <p>Durante el embarazo y la lactancia, la suplementación requiere supervisión profesional personalizada. Te invitamos a una consulta directa con nuestra nutricionista.</p>
+  </div>
+  <div class="mt24">
+    <a href="https://wa.me/56912345678" target="_blank" class="btn wa">Agendar consulta con la Dra. Flow →</a>
+    <button class="btn ghost mt12" onclick="go('s0')">Volver al inicio</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     S2 — PROFILE
+════════════════════════════════════ -->
+<div class="screen" id="s2">
+  <div class="logo top">Flow Nutrition 🌿</div>
+  <div class="dra">
+    <div class="dra-hd">🥼 Dra. Flow</div>
+    <p>Perfecto. Ahora necesito algunos datos básicos. Solo los uso para calcular tu evaluación — no los compartimos con nadie.</p>
+  </div>
+
+  <div class="fgrp mt16">
+    <label class="flbl">¿Cómo te llamas?</label>
+    <input type="text" id="inp-name" placeholder="Tu nombre" oninput="S.userName=this.value.trim()">
+  </div>
+  <div class="fgrp">
+    <label class="flbl">¿Cuántos años tienes?</label>
+    <input type="number" id="inp-age" placeholder="Ej: 28" min="10" max="100" oninput="S.userAge=parseInt(this.value)||null">
+  </div>
+  <div class="fgrp">
+    <label class="flbl">Sexo biológico</label>
+    <div class="sex-row">
+      <div class="card" id="sex-m" onclick="pickSex('male',this)"><em>♂</em><span>Hombre</span></div>
+      <div class="card" id="sex-f" onclick="pickSex('female',this)"><em>♀</em><span>Mujer</span></div>
+    </div>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">Peso actual</label>
+    <div class="sldwrap">
+      <span class="sld-lbl" id="lbl-w">70 kg</span>
+      <input type="range" id="sld-w" min="40" max="150" step="1" value="70" oninput="onW(this)">
+      <div class="sld-ends"><span>40 kg</span><span>150 kg</span></div>
+    </div>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">Talla</label>
+    <div class="sldwrap">
+      <span class="sld-lbl" id="lbl-h">170 cm</span>
+      <input type="range" id="sld-h" min="140" max="210" step="1" value="170" oninput="onH(this)">
+      <div class="sld-ends"><span>140 cm</span><span>210 cm</span></div>
+    </div>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">¿Cuál es tu objetivo principal?</label>
+    <div class="grid" id="goal-cards">
+      <div class="card" onclick="pickGoal('rendimiento',this)"><em>🏋️</em><span>Mejorar rendimiento deportivo</span></div>
+      <div class="card" onclick="pickGoal('energia',this)"><em>⚡</em><span>Aumentar energía y vitalidad</span></div>
+      <div class="card" onclick="pickGoal('peso',this)"><em>🌿</em><span>Bajar peso de forma saludable</span></div>
+      <div class="card" onclick="pickGoal('bienestar',this)"><em>🧠</em><span>Mejorar foco y bienestar mental</span></div>
+    </div>
+  </div>
+  <button class="btn mt8" onclick="validateProfile()">Continuar →</button>
+  <div class="err-msg" id="profile-err">Por favor completa todos los campos antes de continuar.</div>
+</div>
+
+<!-- ════════════════════════════════════
+     S3 — ENTRENAMIENTO (P1 + P2)
+════════════════════════════════════ -->
+<div class="screen" id="s3">
+  <div class="logo top">Flow Nutrition 🌿</div>
+
+  <div class="dim">💪 Entrenamiento</div>
+  <div class="qtitle">¿Cuántos días a la semana realizas actividad física estructurada?</div>
+  <p class="micro">Considero actividad estructurada cualquier sesión con un objetivo: gym, fútbol, running, natación, yoga, etc.</p>
+  <div class="sldwrap">
+    <span class="sld-lbl" id="lbl-p1">3 días</span>
+    <input type="range" id="sld-p1" min="0" max="7" step="1" value="3" oninput="onP1(this)">
+    <div class="sld-ends"><span>0<br>Sedentario</span><span>3<br>Activo regular</span><span>7<br>Alto rendimiento</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">💪 Entrenamiento</div>
+  <div class="qtitle">Durante tus sesiones, ¿cómo describirías tu nivel de energía disponible?</div>
+  <div class="grid col1" id="p2-cards">
+    <div class="card" onclick="pickP2(1,this)"><em>🔴</em><span>Bajo — me cuesta terminar las sesiones</span></div>
+    <div class="card" onclick="pickP2(2,this)"><em>🟡</em><span>Variable — depende mucho del día</span></div>
+    <div class="card" onclick="pickP2(3,this)"><em>🟢</em><span>Bueno — rindo bien la mayoría de veces</span></div>
+    <div class="card" onclick="pickP2(4,this)"><em>⚡</em><span>Óptimo — entreno con intensidad alta y constante</span></div>
+    <div class="card" onclick="pickP2(1,this)"><em>🪑</em><span>No entreno regularmente</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SH — HÁBITOS DIARIOS
+════════════════════════════════════ -->
+<div class="screen" id="sh">
+  <div class="logo top">Flow Nutrition 🌿</div>
+
+  <div class="dim">💧 Hábitos diarios</div>
+  <div class="qtitle">¿Cuánta agua bebes aproximadamente al día?</div>
+  <div class="grid col1" id="hyd-cards">
+    <div class="card" onclick="pickHyd(1,this)"><em>🥤</em><span>Menos de 1 litro — casi no tomo agua</span></div>
+    <div class="card" onclick="pickHyd(2,this)"><em>💧</em><span>Entre 1 y 1.5 litros</span></div>
+    <div class="card" onclick="pickHyd(3,this)"><em>🫙</em><span>Entre 1.5 y 2 litros</span></div>
+    <div class="card" onclick="pickHyd(4,this)"><em>🌊</em><span>Más de 2 litros al día</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">🪑 Hábitos diarios</div>
+  <div class="qtitle">¿Cuántas horas al día pasas sentado/a?</div>
+  <p class="micro">El tiempo sedentario afecta la postura, el metabolismo y la recuperación muscular — incluso si entrenas con regularidad.</p>
+  <div class="grid col1" id="sed-cards">
+    <div class="card" onclick="pickSed(4,this)"><em>🚶</em><span>Menos de 4 horas — me muevo bastante</span></div>
+    <div class="card" onclick="pickSed(3,this)"><em>🧍</em><span>Entre 4 y 6 horas</span></div>
+    <div class="card" onclick="pickSed(2,this)"><em>💼</em><span>Entre 6 y 8 horas en escritorio</span></div>
+    <div class="card" onclick="pickSed(1,this)"><em>🖥️</em><span>Más de 8 horas sentado/a la mayoría de días</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">💊 Hábitos diarios</div>
+  <div class="qtitle">¿Usas actualmente algún suplemento?</div>
+  <div class="grid col1" id="supp-cards">
+    <div class="card" onclick="pickSupp('none',this)"><em>🚫</em><span>No uso ningún suplemento actualmente</span></div>
+    <div class="card" onclick="pickSupp('vitamins',this)"><em>🍊</em><span>Solo vitaminas o minerales básicos</span></div>
+    <div class="card" onclick="pickSupp('protein',this)"><em>🥛</em><span>Proteína en polvo o similares</span></div>
+    <div class="card" onclick="pickSupp('other',this)"><em>🧴</em><span>Otros suplementos (creatina, pre-entreno, etc.)</span></div>
+  </div>
+  <div class="err-msg" id="sh-err">Por favor responde las preguntas de hidratación y sedentarismo antes de continuar.</div>
+</div>
+
+<!-- ════════════════════════════════════
+     S4 — ALIMENTACIÓN (P3 + P4)
+════════════════════════════════════ -->
+<div class="screen" id="s4">
+  <div class="logo top">Flow Nutrition 🌿</div>
+
+  <div class="dim">🥗 Alimentación</div>
+  <div class="qtitle">¿Qué tan alineada está tu alimentación con lo que quieres lograr?</div>
+  <div class="sldwrap">
+    <span class="sld-lbl" id="lbl-p3">Intento mejorar</span>
+    <input type="range" id="sld-p3" min="1" max="4" step="1" value="2" oninput="onP3(this)">
+    <div class="sld-ends"><span>Sin orden</span><span>Intento mejorar</span><span>Bastante ordenado/a</span><span>Muy estructurado/a</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">🥗 Alimentación</div>
+  <div class="qtitle">¿Cuál describe mejor tu forma de alimentarte?</div>
+  <div class="grid col1" id="p4-cards">
+    <div class="card" onclick="pickP4(2,false,this)"><em>🍽️</em><span>Como variado, sin restricciones particulares</span></div>
+    <div class="card" onclick="pickP4(3,false,this)"><em>🥗</em><span>Prefiero alimentos naturales y poco procesados</span></div>
+    <div class="card" onclick="pickP4(3,true,this)"><em>🌱</em><span>Alimentación plant-based o vegetariana</span></div>
+    <div class="card" onclick="pickP4(4,false,this)"><em>📋</em><span>Sigo orientación de un profesional de salud</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     S5 — SUEÑO Y RECUPERACIÓN (P5 + P6)
+════════════════════════════════════ -->
+<div class="screen" id="s5">
+  <div class="logo top">Flow Nutrition 🌿</div>
+
+  <div class="dim">😴 Recuperación</div>
+  <div class="qtitle">En una semana típica, ¿cómo evaluarías la calidad de tu sueño?</div>
+  <div class="sldwrap">
+    <span class="sld-lbl" id="lbl-p5">Irregular</span>
+    <input type="range" id="sld-p5" min="1" max="4" step="1" value="2" oninput="onP5(this)">
+    <div class="sld-ends"><span>Muy deficiente</span><span>Irregular</span><span>Aceptable</span><span>Reparador</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">😴 Recuperación</div>
+  <div class="qtitle">Después de una sesión exigente, ¿cuánto tiempo necesitas para sentirte recuperado/a?</div>
+  <div class="grid col1" id="p6-cards">
+    <div class="card" onclick="pickP6(1,this)"><em>😣</em><span>Más de 72 hrs — dolor y fatiga persistente</span></div>
+    <div class="card" onclick="pickP6(2,this)"><em>😐</em><span>48–72 hrs — pesadez frecuente</span></div>
+    <div class="card" onclick="pickP6(3,this)"><em>🙂</em><span>24–48 hrs — recuperación normal</span></div>
+    <div class="card" onclick="pickP6(4,this)"><em>💪</em><span>Menos de 24 hrs — me recupero rápido</span></div>
+    <div class="card" onclick="pickP6(2,this)"><em>🪑</em><span>No aplica — no entreno regularmente</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     S6 — BIENESTAR (P7 + P8 + P9)
+════════════════════════════════════ -->
+<div class="screen" id="s6">
+  <div class="logo top">Flow Nutrition 🌿</div>
+
+  <div class="dim">🧠 Bienestar</div>
+  <div class="qtitle">¿Cómo describirías tu claridad mental y concentración durante el día?</div>
+  <div class="sldwrap">
+    <span class="sld-lbl" id="lbl-p7">Fluctuante</span>
+    <input type="range" id="sld-p7" min="1" max="4" step="1" value="2" oninput="onP7(this)">
+    <div class="sld-ends"><span>Niebla constante</span><span>Fluctuante</span><span>Estable</span><span>Alta y sostenida</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">🧠 Bienestar</div>
+  <div class="qtitle">¿Con qué frecuencia te expones a luz solar directa?</div>
+  <p class="micro">La vitamina D se sintetiza principalmente con exposición solar. Es uno de los déficits más frecuentes en personas activas y afecta directamente el rendimiento y el ánimo.</p>
+  <div class="grid col1" id="p8-cards">
+    <div class="card" onclick="pickP8(1,this)"><em>🏠</em><span>Casi nunca — trabajo en espacios cerrados</span></div>
+    <div class="card" onclick="pickP8(2,this)"><em>☁️</em><span>Menos de 20 minutos al día</span></div>
+    <div class="card" onclick="pickP8(3,this)"><em>☀️</em><span>Entre 20 y 45 minutos la mayoría de días</span></div>
+    <div class="card" onclick="pickP8(4,this)"><em>🌄</em><span>Más de 45 minutos, actividad outdoor regular</span></div>
+  </div>
+
+  <div class="qdiv"></div>
+
+  <div class="dim">🧠 Bienestar</div>
+  <div class="qtitle">¿Cómo describirías tu nivel de estrés en las últimas semanas?</div>
+  <p class="micro">El estrés crónico eleva el cortisol, agota el magnesio y deteriora la recuperación muscular — independiente de cuánto entrenes.</p>
+  <div class="grid col1" id="p9-cards">
+    <div class="card" onclick="pickP9(1,this)"><em>😮‍💨</em><span>Alto y constante — me siento al límite</span></div>
+    <div class="card" onclick="pickP9(2,this)"><em>😰</em><span>Moderado — algunos días me supera</span></div>
+    <div class="card" onclick="pickP9(3,this)"><em>😐</em><span>Manejable — lo controlo en general</span></div>
+    <div class="card" onclick="pickP9(4,this)"><em>😌</em><span>Bajo — me siento equilibrado/a</span></div>
+  </div>
+  <div class="err-msg" id="s6-err">Por favor responde la pregunta de luz solar antes de continuar.</div>
+</div>
+
+<!-- ════════════════════════════════════
+     S7 — RESULTS
+════════════════════════════════════ -->
+<div class="screen" id="s7">
+  <div class="logo" style="margin-top:20px;">Flow Nutrition 🌿</div>
+
+  <h2 id="res-header" style="font-size:1.5rem;margin-bottom:16px;line-height:1.2;"></h2>
+
+  <!-- PERFIL DEL EVALUADO -->
+  <div class="profile-card" id="profile-card"></div>
+
+  <!-- SCORE CIRCLE -->
+  <div class="circle-wrap mt20">
+    <svg width="180" height="180" viewBox="0 0 180 180">
+      <circle cx="90" cy="90" r="78" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="8"/>
+      <circle id="score-circle" cx="90" cy="90" r="78" fill="none"
+              stroke="#4A7C59" stroke-width="8"
+              stroke-dasharray="490.09" stroke-dashoffset="490.09"
+              stroke-linecap="round"
+              transform="rotate(-90 90 90)"/>
+    </svg>
+    <div class="score-num-wrap">
+      <div class="score-big" id="score-num">0</div>
+      <div class="score-max">/100</div>
+    </div>
+  </div>
+  <div style="text-align:center;"><span class="cat-badge" id="cat-badge"></span></div>
+
+  <!-- DRA. FLOW MESSAGE -->
+  <div class="dra mt20">
+    <div class="dra-hd">🥼 Dra. Flow — Nutricionista</div>
+    <p id="dra-msg"></p>
+  </div>
+
+  <!-- DIAGNÓSTICO POR ÁREA -->
+  <div class="sec-title mt20">Diagnóstico por área</div>
+  <div id="dim-diags"></div>
+
+  <!-- INSIGHTS CLAVE -->
+  <div class="sec-title mt20">Hallazgos clave de la Dra. Flow</div>
+  <div id="insights-list"></div>
+
+  <!-- TOP PRODUCT -->
+  <div class="sec-title mt20">Recomendación principal</div>
+  <div id="top-prod"></div>
+
+  <!-- EMAIL GATE -->
+  <div class="email-gate" id="email-gate">
+    <h2 id="eg-title" style="font-size:1.3rem;line-height:1.2;"></h2>
+    <div class="dra mt12">
+      <div class="dra-hd">🥼 Dra. Flow</div>
+      <p>Ingresa tu email y te enviamos tu plan de acción completo con el protocolo de suplementación personalizado de la Dra. Flow.</p>
+    </div>
+    <input type="email" id="email-inp" placeholder="tu@email.com" style="margin-top:12px;">
+    <div class="email-err" id="email-err">Por favor ingresa un email válido.</div>
+    <button class="btn mt12" onclick="submitEmail()">Recibir mi plan completo →</button>
+    <p class="email-fp">Sin spam. Solo tu informe personalizado de Flow Nutrition.</p>
+  </div>
+  <div class="email-ok" id="email-ok"></div>
+
+  <!-- PHASE 2 -->
+  <div class="phase2" id="phase2">
+
+    <!-- PLAN DE ACCIÓN -->
+    <div class="sec-title">Tu plan de acción</div>
+    <p class="micro" style="margin-bottom:14px;">Pasos concretos recomendados por la Dra. Flow según tu evaluación. Enfócate en las primeras 2–3 semanas.</p>
+    <div id="action-plan"></div>
+
+    <div class="qdiv"></div>
+
+    <!-- PROTOCOLO DE SUPLEMENTACIÓN -->
+    <div class="sec-title">Protocolo de suplementación</div>
+    <p class="micro" style="margin-bottom:14px;">Productos seleccionados según tus áreas de menor puntuación y perfil personal.</p>
+    <div id="rem-prods"></div>
+
+    <div id="med-disc"></div>
+
+    <div class="cta-stack">
+      <a href="https://instagram.com/flow.nutrition.cl" target="_blank" class="btn ig">📱 Ver productos en Instagram</a>
+      <a href="FLOW_NUTRITION_WEB_URL" target="_blank" class="btn dim">🌐 Conoce Flow Nutrition</a>
+      <a href="https://wa.me/56912345678" target="_blank" class="btn wa">💬 Consultar con la Dra. Flow</a>
+    </div>
+    <div class="rfooter">Flow Nutrition © 2025 — Ciencia aplicada al rendimiento</div>
+  </div>
+
+</div><!-- s7 -->
+</div><!-- .app -->
+
+<script>
+// ─── GOOGLE FORM ENDPOINT ─────────────────────────────────────────────
+const GFORM = 'https://docs.google.com/forms/u/0/d/e/1FAIpQLScTe8imTPhrVq7aG8fVWySz2rjfZ69ApjcYe-TINnU9m9kYWg/formResponse';
+
+// ─── PROGRESS CONFIG ─────────────────────────────────────────────────
+const PROG = {s0:0,s1:.08,s1b:.08,s2:.20,s3:.38,sh:.52,s4:.64,s5:.76,s6:.90,s7:1};
+const QLBL = {s3:'Preguntas 1–2 de 11',sh:'Preguntas 3–4 de 11',s4:'Preguntas 5–6 de 11',s5:'Preguntas 7–8 de 11',s6:'Preguntas 9–11 de 11'};
+
+// ─── PRODUCTS ────────────────────────────────────────────────────────
+const PRODUCTS = [
+  {
+    id:'creatina',name:'Creatina FNL',sk:'performanceScore',
+    ok:()=>S.performanceScore<60&&!S.restricted&&!S.plantBased,
+    txt:'La creatina es el suplemento más respaldado científicamente para mejorar fuerza y potencia muscular.'
+  },
+  {
+    id:'funghi',name:'Funghi Pre-entreno',sk:'performanceScore',
+    ok:()=>S.performanceScore<60&&S.p2pts<=2&&!S.restricted,
+    txt:'Tu energía disponible antes de entrenar está limitando tu rendimiento real.'
+  },
+  {
+    id:'probase',name:'ProBASE Proteína Vegana',sk:'nutritionScore',
+    ok:()=>S.nutritionScore<60&&S.suppFlag!=='protein',
+    txt:()=>S.plantBased
+      ?'En una alimentación plant-based, cubrir requerimientos proteicos es fundamental y muchas veces insuficiente.'
+      :'Una base proteica adecuada es el primer paso para alinear tu alimentación con tu objetivo.'
+  },
+  {
+    id:'magnesio',name:'Magnesio Bisglicinato',sk:'recoveryScore',
+    ok:()=>S.recoveryScore<60,
+    txt:'El magnesio bisglicinato mejora la calidad del sueño y reduce la fatiga muscular post esfuerzo.'
+  },
+  {
+    id:'vitamina-d',name:'Vitamina D3',sk:'wellbeingScore',
+    ok:()=>S.wellbeingScore<60&&S.p8pts<=2,
+    txt:'El déficit de vitamina D impacta directamente energía, ánimo y función inmune.'
+  },
+  {
+    id:'melena',name:'Melena de León',sk:'wellbeingScore',
+    ok:()=>S.p9pts<=2,
+    txt:'El hongo Melena de León tiene evidencia en reducción de ansiedad y mejora del foco cognitivo bajo estrés.'
+  }
+];
+
+const DIMS = [
+  {k:'performanceScore',icon:'💪',name:'Rendimiento',desc:'Tu nivel de actividad y energía durante el entrenamiento necesita atención.'},
+  {k:'nutritionScore',icon:'🥗',name:'Nutrición',desc:'Tu alimentación no está completamente alineada con tus objetivos.'},
+  {k:'recoveryScore',icon:'😴',name:'Recuperación',desc:'Tu descanso y recuperación muscular necesitan atención prioritaria.'},
+  {k:'wellbeingScore',icon:'🧠',name:'Bienestar',desc:'Tu bienestar mental y niveles de vitaminas necesitan optimización.'}
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────
+const S = {
+  medicalFlag:null,restricted:false,
+  userName:'',userAge:null,userSex:null,
+  userWeight:70,userHeight:170,userBMI:null,goal:null,
+  p1Days:3,p1pts:3,p2pts:null,
+  p_hyd:null,p_sed:null,suppFlag:'none',
+  p3pts:2,p4pts:null,plantBased:false,
+  p5pts:2,p6pts:null,
+  p7pts:2,p8pts:null,p9pts:null,
+  performanceScore:0,nutritionScore:0,recoveryScore:0,wellbeingScore:0,
+  flowScore:0,category:'',categoryColor:'',drFlowMsg:'',
+  topProduct:null,remProducts:[]
+};
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────
+function go(id){
+  const cur=document.querySelector('.screen.active');
+  const nxt=document.getElementById(id);
+  if(!nxt)return;
+  if(cur){
+    cur.style.opacity='0';
+    setTimeout(()=>{cur.classList.remove('active');activate(nxt,id);},280);
+  }else{activate(nxt,id);}
+}
+
+function activate(el,id){
+  el.scrollTop=0;
+  el.classList.add('active');
+  el.style.opacity='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    el.style.opacity='1';
+    setProgress(id);
+    initScreen(id);
+  }));
+}
+
+function setProgress(id){
+  const w=document.getElementById('prog-wrap');
+  const f=document.getElementById('prog-fill');
+  const l=document.getElementById('prog-lbl');
+  if(id==='s0'||id==='s7'){w.classList.remove('on');return;}
+  w.classList.add('on');
+  f.style.width=((PROG[id]||0)*100)+'%';
+  l.textContent=QLBL[id]||'';
+}
+
+function initScreen(id){
+  if(id==='s0') spawnParticles();
+  if(id==='s2'){sldInit('sld-w','lbl-w',v=>v+' kg');sldInit('sld-h','lbl-h',v=>v+' cm');}
+  if(id==='s3') sldInit('sld-p1','lbl-p1',v=>v+(v==1?' día':' días'));
+  if(id==='s4'){const L=['','Sin orden','Intento mejorar','Bastante ordenado/a','Muy estructurado/a'];sldInit('sld-p3','lbl-p3',v=>L[v]);}
+  if(id==='s5'){const L=['','Muy deficiente','Irregular','Aceptable','Reparador'];sldInit('sld-p5','lbl-p5',v=>L[v]);}
+  if(id==='s6'){const L=['','Niebla constante','Fluctuante','Estable','Alta y sostenida'];sldInit('sld-p7','lbl-p7',v=>L[v]);}
+  if(id==='s7'){calcScores();renderResults();}
+}
+
+// ─── SLIDER HELPERS ───────────────────────────────────────────────────
+function sldInit(sldId,lblId,fmt){
+  const el=document.getElementById(sldId);
+  if(el) sldUI(el,lblId,fmt);
+}
+
+function sldUI(el,lblId,fmt){
+  const mn=+el.min,mx=+el.max,v=+el.value;
+  const pct=((v-mn)/(mx-mn))*100;
+  el.style.background=`linear-gradient(to right,#4A7C59 ${pct}%,rgba(255,255,255,.15) ${pct}%)`;
+  const lbl=document.getElementById(lblId);
+  if(lbl){
+    lbl.textContent=fmt?fmt(v):v;
+    setTimeout(()=>{
+      const tw=el.offsetWidth-22;
+      lbl.style.left=((pct/100)*tw+11)+'px';
+    },30);
+  }
+}
+
+function onW(el){S.userWeight=+el.value;sldUI(el,'lbl-w',v=>v+' kg');}
+function onH(el){S.userHeight=+el.value;sldUI(el,'lbl-h',v=>v+' cm');}
+function onP1(el){
+  const v=+el.value;S.p1Days=v;
+  S.p1pts=v===0?1:v<=2?2:v<=4?3:4;
+  sldUI(el,'lbl-p1',v=>v+(v==1?' día':' días'));
+}
+function onP3(el){
+  S.p3pts=+el.value;
+  const L=['','Sin orden','Intento mejorar','Bastante ordenado/a','Muy estructurado/a'];
+  sldUI(el,'lbl-p3',v=>L[v]);
+}
+function onP5(el){
+  S.p5pts=+el.value;
+  const L=['','Muy deficiente','Irregular','Aceptable','Reparador'];
+  sldUI(el,'lbl-p5',v=>L[v]);
+}
+function onP7(el){
+  S.p7pts=+el.value;
+  const L=['','Niebla constante','Fluctuante','Estable','Alta y sostenida'];
+  sldUI(el,'lbl-p7',v=>L[v]);
+}
+
+// ─── CARD SELECTION ───────────────────────────────────────────────────
+function desel(cid){document.querySelectorAll('#'+cid+' .card').forEach(c=>c.classList.remove('sel'));}
+
+function pickMed(flag,el){
+  desel('med-cards');el.classList.add('sel');S.medicalFlag=flag;
+  setTimeout(()=>go(flag==='pregnant'?'s1b':'s2'),260);
+}
+function pickSex(sex,el){
+  document.querySelectorAll('.sex-row .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');S.userSex=sex;
+}
+function pickGoal(goal,el){desel('goal-cards');el.classList.add('sel');S.goal=goal;}
+function pickP2(pts,el){desel('p2-cards');el.classList.add('sel');S.p2pts=pts;setTimeout(()=>go('sh'),260);}
+function pickHyd(pts,el){desel('hyd-cards');el.classList.add('sel');S.p_hyd=pts;}
+function pickSed(pts,el){desel('sed-cards');el.classList.add('sel');S.p_sed=pts;}
+function pickSupp(flag,el){
+  const e=document.getElementById('sh-err');
+  if(!S.p_hyd||!S.p_sed){e.style.display='block';return;}
+  e.style.display='none';
+  desel('supp-cards');el.classList.add('sel');S.suppFlag=flag;
+  setTimeout(()=>go('s4'),260);
+}
+function pickP4(pts,isPlant,el){
+  desel('p4-cards');el.classList.add('sel');S.p4pts=pts;S.plantBased=isPlant;
+  setTimeout(()=>go('s5'),260);
+}
+function pickP6(pts,el){desel('p6-cards');el.classList.add('sel');S.p6pts=pts;setTimeout(()=>go('s6'),260);}
+function pickP8(pts,el){desel('p8-cards');el.classList.add('sel');S.p8pts=pts;}
+function pickP9(pts,el){
+  const errEl=document.getElementById('s6-err');
+  if(!S.p8pts){errEl.style.display='block';return;}
+  errEl.style.display='none';
+  desel('p9-cards');el.classList.add('sel');S.p9pts=pts;
+  setTimeout(()=>go('s7'),260);
+}
+
+// ─── PROFILE VALIDATION ───────────────────────────────────────────────
+function validateProfile(){
+  const e=document.getElementById('profile-err');
+  if(!S.userName||!S.userAge||!S.userSex||!S.goal){e.style.display='block';return;}
+  e.style.display='none';
+  const h=S.userHeight/100;
+  S.userBMI=S.userWeight/(h*h);
+  go('s3');
+}
+
+// ─── SCORING ──────────────────────────────────────────────────────────
+function calcScores(){
+  // Ensure slider values are captured
+  S.p3pts=+document.getElementById('sld-p3').value||2;
+  S.p5pts=+document.getElementById('sld-p5').value||2;
+  S.p7pts=+document.getElementById('sld-p7').value||2;
+  // Defaults for any unset card pts
+  if(!S.p2pts)S.p2pts=2;
+  if(!S.p_hyd)S.p_hyd=2;
+  if(!S.p_sed)S.p_sed=2;
+  if(!S.p4pts)S.p4pts=2;
+  if(!S.p6pts)S.p6pts=2;
+  if(!S.p8pts)S.p8pts=2;
+  if(!S.p9pts)S.p9pts=2;
+
+  // Sub-scores (p_hyd integrado en nutrición; p_sed en rendimiento)
+  S.performanceScore=((S.p1pts+S.p2pts+S.p_sed)/12)*100;
+  S.nutritionScore=((S.p3pts+S.p4pts+S.p_hyd)/12)*100;
+  S.recoveryScore=((S.p5pts+S.p6pts)/8)*100;
+  S.wellbeingScore=((S.p7pts+S.p8pts+S.p9pts)/12)*100;
+
+  // Modifiers
+  let mod=0;
+  if(S.userBMI>=18.5&&S.userBMI<=24.9)mod+=2;
+  if(S.userBMI<18.5||S.userBMI>30)mod-=3;
+  if(S.userAge>45)S.recoveryScore*=0.9;
+  if(S.userSex==='female'){S.recoveryScore*=1.05;S.wellbeingScore*=1.05;}
+  if(S.goal==='rendimiento'&&S.p1Days>=5)mod+=2;
+  if(S.medicalFlag==='chronic')mod-=2;
+
+  // Clamp sub-scores
+  ['performanceScore','nutritionScore','recoveryScore','wellbeingScore'].forEach(k=>{
+    S[k]=Math.round(Math.min(100,Math.max(0,S[k])));
+  });
+
+  // Base + final
+  const base=S.p1pts+S.p2pts+S.p_hyd+S.p_sed+S.p3pts+S.p4pts+S.p5pts+S.p6pts+S.p7pts+S.p8pts+S.p9pts;
+  S.flowScore=Math.max(10,Math.min(100,Math.round(((base+mod)/44)*100)));
+
+  // Category
+  S.restricted=S.medicalFlag==='chronic';
+  if(S.flowScore<=40){S.category='En construcción';S.categoryColor='#C0392B';
+    S.drFlowMsg='Tu cuerpo tiene mucho potencial por activar. Hay áreas clave que necesitan atención prioritaria.';}
+  else if(S.flowScore<=60){S.category='En desarrollo';S.categoryColor='#D4A017';
+    S.drFlowMsg='Vas por buen camino, pero hay factores que están limitando tu rendimiento y recuperación.';}
+  else if(S.flowScore<=80){S.category='Flujo activo';S.categoryColor='#4A7C59';
+    S.drFlowMsg='Tienes una base sólida. Con ajustes específicos puedes llevar tu rendimiento al siguiente nivel.';}
+  else{S.category='Alto rendimiento';S.categoryColor='#C9A84C';
+    S.drFlowMsg='Excelente estado general. El foco ahora es optimizar y sostener este nivel en el tiempo.';}
+
+  // Recommendations
+  const matched=PRODUCTS.filter(p=>p.ok());
+  matched.sort((a,b)=>S[a.sk]-S[b.sk]);
+  const top3=matched.slice(0,3);
+  S.topProduct=top3[0]||null;
+  S.remProducts=top3.slice(1);
+}
+
+function ptxt(p){return typeof p.txt==='function'?p.txt():p.txt;}
+function scoreColor(s){return s<40?'#C0392B':s<60?'#D4A017':'#4A7C59';}
+
+// ─── ANALYSIS HELPERS ─────────────────────────────────────────────────
+
+function getProfileType(){
+  if(S.p1Days>=5&&S.nutritionScore<50) return 'Atleta con déficit nutricional';
+  if(S.p1Days>=4&&S.recoveryScore<50) return 'Activo con recuperación limitada';
+  if(S.p1Days<=1&&S.p_sed<=2) return 'Perfil sedentario en inicio';
+  if(S.p9pts<=2&&S.p5pts<=2) return 'Activo bajo estrés y fatiga crónica';
+  if(S.p1Days>=3&&S.wellbeingScore<50) return 'Activo con estrés elevado';
+  if(S.plantBased&&S.p1Days>=3) return 'Deportista plant-based';
+  if(S.flowScore>=75) return 'Perfil activo consolidado';
+  if(S.p1Days>=3) return 'Perfil en desarrollo activo';
+  return 'Perfil en construcción';
+}
+
+function getBMILabel(){
+  const b=S.userBMI;
+  if(!b) return '—';
+  if(b<18.5) return `${b.toFixed(1)} · Bajo peso`;
+  if(b<25)   return `${b.toFixed(1)} · Peso saludable`;
+  if(b<30)   return `${b.toFixed(1)} · Sobrepeso leve`;
+  return `${b.toFixed(1)} · Obesidad`;
+}
+
+function getGoalLabel(){
+  return {rendimiento:'Rendimiento deportivo',energia:'Energía y vitalidad',peso:'Control de peso',bienestar:'Bienestar mental'}[S.goal]||S.goal;
+}
+
+function getDiagnosis(k){
+  switch(k){
+    case 'performanceScore':
+      if(S.p1Days>=5&&S.p2pts<=2) return 'Entrenas con alta frecuencia pero tu energía no acompaña las sesiones. Esto sugiere déficit nutricional o recuperación insuficiente para esa carga.';
+      if(S.p1Days>=3&&S.p_sed<=2) return 'Tienes actividad física regular pero el tiempo sedentario elevado contrarresta parte de sus beneficios metabólicos y posturales.';
+      if(S.p1Days<=1) return 'La frecuencia de entrenamiento es muy baja. Activar un plan progresivo de movimiento es la palanca de mayor impacto en tu caso.';
+      if(S.p1Days>=3&&S.p2pts>=3) return 'Buena frecuencia y energía de entrenamiento. El foco ahora está en sostener esta base con nutrición y recuperación adecuadas.';
+      return 'Tu rendimiento tiene margen de mejora. Ajustes en frecuencia de entrenamiento y nutrición periférica generarán un impacto directo.';
+    case 'nutritionScore':
+      if(S.p_hyd<=2&&S.p3pts<=2) return 'Tu hidratación y orden alimentario son las dos áreas de mayor oportunidad. Ambas impactan directamente la energía, composición corporal y recuperación.';
+      if(S.p_hyd<=2) return 'Tu hidratación es insuficiente. Una deshidratación leve del 2% reduce el rendimiento físico y cognitivo de forma medible — es una de las variables más subestimadas.';
+      if(S.p3pts<=2) return 'Tu alimentación aún no está alineada con tu objetivo. Estructurar 3 comidas principales con proteína + carbohidrato complejo es el primer paso.';
+      if(S.plantBased&&S.nutritionScore<65) return 'En una alimentación plant-based, la densidad proteica y micronutrientes como B12, hierro y zinc requieren planificación específica y constante.';
+      return 'Tu base nutricional es aceptable. Hay espacio para optimizar el timing de comidas, la hidratación y la calidad de macronutrientes.';
+    case 'recoveryScore':
+      if(S.p5pts<=2&&S.p9pts<=2) return 'Sueño deficiente y estrés elevado se retroalimentan mutuamente. El cortisol nocturno deteriora el sueño, y el mal descanso eleva el cortisol diurno — un ciclo que hay que interrumpir.';
+      if(S.p5pts<=2) return 'La calidad del sueño es tu principal limitante. Sin sueño reparador, ningún protocolo de entrenamiento ni suplementación puede rendir al máximo.';
+      if(S.p6pts<=1&&S.p1Days>=4) return 'Tu recuperación post-sesión es lenta para la frecuencia de entrenamiento que manejas. Existe riesgo real de sobreentrenamiento acumulado.';
+      if(S.p5pts>=3&&S.p6pts>=3) return 'Buena recuperación y calidad de sueño. Este es un activo importante para sostener el progreso en el tiempo.';
+      return 'Tu recuperación es moderada. Mejoras en sueño y manejo del estrés generarán un impacto directo en tu rendimiento y composición corporal.';
+    case 'wellbeingScore':
+      if(S.p9pts<=2&&S.p7pts<=2) return 'Estrés elevado y niebla mental tienen origen común en el cortisol crónico. Esto afecta simultáneamente sueño, foco y recuperación muscular.';
+      if(S.p8pts<=2&&S.p_sed<=2) return 'Trabajo en interior y poca exposición solar: el déficit de vitamina D es muy probable y puede estar afectando tu energía, ánimo y función inmune.';
+      if(S.p7pts<=2) return 'La claridad mental reducida puede ser consecuencia de fatiga acumulada, hidratación insuficiente o déficit de micronutrientes esenciales.';
+      if(S.wellbeingScore>=70) return 'Buen estado de bienestar general. Sostener estos hábitos consistentemente es el mayor desafío en esta área.';
+      return 'Tu bienestar mental tiene potencial de mejora. Pequeños ajustes en sueño, manejo del estrés y exposición solar generan cambios perceptibles en pocas semanas.';
+  }
+  return '';
+}
+
+function getInsights(){
+  const ins=[];
+  if(S.p1Days>=5&&S.p_hyd<=2)
+    ins.push({icon:'💡',txt:`Entrenas ${S.p1Days} días semanales pero tu hidratación es baja. La deshidratación leve reduce la síntesis proteica y la potencia muscular — estás dejando rendimiento sobre la mesa.`});
+  if(S.p_sed<=2&&S.p1Days>=3)
+    ins.push({icon:'⚠️',txt:'Patrón activo-sedentario: ejercitas con regularidad pero pasas muchas horas sentado/a. Este contraste limita los beneficios metabólicos y aumenta la tensión postural.'});
+  if(S.p5pts<=2&&S.p9pts<=2)
+    ins.push({icon:'🔴',txt:'El sueño deficiente y el estrés elevado forman un ciclo que se retroalimenta. Sin intervenir ambos simultáneamente, mejorar solo uno da resultados muy limitados.'});
+  if(S.p8pts<=2)
+    ins.push({icon:'☀️',txt:'Con poca exposición solar, el déficit de vitamina D es muy probable. Este nutriente regula más de 200 funciones, incluyendo fuerza muscular, ánimo e inmunidad.'});
+  if(S.p3pts<=2&&S.p1Days>=3)
+    ins.push({icon:'🥗',txt:'Tu frecuencia de entrenamiento no está siendo respaldada por la nutrición. Sin alimentación ordenada, el cuerpo no puede reparar tejido muscular ni reponer glucógeno correctamente.'});
+  if(S.suppFlag==='none'&&S.flowScore<65)
+    ins.push({icon:'🧪',txt:'No usas ningún suplemento actualmente. Dado tu perfil, hay 1 o 2 productos con alta evidencia clínica que podrían marcar una diferencia real y medible en semanas.'});
+  if(S.userAge>40&&S.recoveryScore<60)
+    ins.push({icon:'🔬',txt:'A partir de los 40 años aumentan los requerimientos de magnesio, proteína y vitamina D. Tu recuperación puede beneficiarse significativamente de suplementación específica.'});
+  return ins.slice(0,3);
+}
+
+const PRODUCT_TIMING = {
+  creatina:   '⏱ 3–5g diarios, cualquier momento. La consistencia importa más que el timing.',
+  funghi:     '⏱ 1 dosis 30–45 min antes de entrenar.',
+  probase:    '⏱ 20–30g dentro de las 2 horas post-entrenamiento.',
+  magnesio:   '⏱ 200–400mg en la noche, 30–60 min antes de dormir.',
+  'vitamina-d':'⏱ 1000–2000 UI con el almuerzo (necesita grasa para absorberse).',
+  melena:     '⏱ 500mg–1g con el desayuno. Efectos perceptibles a las 2–4 semanas.'
+};
+
+function getActionPlan(){
+  const areas=[];
+  const sorted=[...DIMS].sort((a,b)=>S[a.k]-S[b.k]);
+  sorted.forEach(dim=>{
+    const tips=[];
+    if(dim.k==='performanceScore'){
+      if(S.p_sed<=2) tips.push('Incorpora pausas activas de 5 min cada 90 min sentado/a — caminata corta o movilidad articular.');
+      if(S.p1Days<=2) tips.push('Comienza con 3 sesiones semanales de 30–45 min. La consistencia supera la intensidad en las primeras 8 semanas.');
+      if(S.p2pts<=2) tips.push('Consume un carbohidrato simple (fruta o avena) 30–60 min antes de entrenar para mejorar la energía disponible.');
+    }
+    if(dim.k==='nutritionScore'){
+      if(S.p_hyd<=2) tips.push(`Meta: ${Math.round(S.userWeight*35)}ml de agua diarios (35ml × tu peso). Comienza con 2 vasos al despertar antes de cualquier otra cosa.`);
+      if(S.p3pts<=2) tips.push('Estructura cada comida principal con: 30% proteína + 40% carbohidrato complejo + 30% vegetales. Simplicidad y consistencia son más efectivas que la perfección.');
+      if(S.plantBased) tips.push('En alimentación plant-based combina legumbres + cereal en cada comida para completar el perfil de aminoácidos esenciales (ej: lentejas + arroz).');
+    }
+    if(dim.k==='recoveryScore'){
+      if(S.p5pts<=2) tips.push('Define una hora fija de acostarte y respétala 6 de 7 días. La regularidad del horario de sueño regula el cortisol mejor que cualquier suplemento.');
+      if(S.p6pts<=2) tips.push('Agrega 10 min de movilidad articular al final de cada sesión — esto acelera la recuperación muscular y reduce el DOMS significativamente.');
+      if(S.p9pts<=2) tips.push('Practica respiración 4-7-8 (inhala 4s, retén 7s, exhala 8s) por 5 ciclos al despertar para reducir el cortisol matutino.');
+    }
+    if(dim.k==='wellbeingScore'){
+      if(S.p8pts<=2) tips.push('Exponte al sol 15–20 min entre las 10am y 2pm sin bloqueador, al menos 4 días por semana. Es el único método confiable de síntesis natural de vitamina D.');
+      if(S.p7pts<=2) tips.push('Trabaja en bloques de 90 min con foco total y sin notificaciones. La multitarea fragmenta la memoria de trabajo y eleva el cortisol.');
+      if(S.p9pts<=2) tips.push('Identifica tus 3 principales estresores y define una acción concreta para reducir cada uno. La claridad sobre el problema reduce su carga cognitiva.');
+    }
+    if(tips.length>0) areas.push({icon:dim.icon,name:dim.name,tips:tips.slice(0,2)});
+  });
+  return areas.slice(0,3);
+}
+
+// ─── RENDER RESULTS ───────────────────────────────────────────────────
+function renderResults(){
+  document.getElementById('res-header').textContent=`Tu Flow Score, ${S.userName}`;
+
+  // Profile card
+  const goalLabel=getGoalLabel();
+  const bmiLabel=getBMILabel();
+  const profileType=getProfileType();
+  const hydLabel=['','<1L','1–1.5L','1.5–2L','+2L'][S.p_hyd]||'—';
+  const sedLabel=['','<4h','4–6h','6–8h','+8h'][5-S.p_sed]||'—'; // invert: p_sed 4=<4h, 1=+8h
+  document.getElementById('profile-card').innerHTML=`
+    <div class="profile-name">👤 ${S.userName}, ${S.userAge} años</div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="ps-label">IMC</div><div class="ps-value">${bmiLabel}</div></div>
+      <div class="profile-stat"><div class="ps-label">Objetivo</div><div class="ps-value">${goalLabel}</div></div>
+      <div class="profile-stat"><div class="ps-label">Hidratación diaria</div><div class="ps-value">${hydLabel}</div></div>
+      <div class="profile-stat"><div class="ps-label">Horas sedentario/a</div><div class="ps-value">${sedLabel}</div></div>
+    </div>
+    <div class="profile-type">🎯 ${profileType}</div>
+  `;
+
+  // Score circle
+  const circ=490.09;
+  const circle=document.getElementById('score-circle');
+  circle.style.stroke=S.categoryColor;
+  setTimeout(()=>{
+    circle.style.transition='stroke-dashoffset 1.5s ease-in-out';
+    circle.style.strokeDashoffset=(circ-(S.flowScore/100)*circ).toString();
+  },120);
+
+  // Count-up
+  const numEl=document.getElementById('score-num');
+  let n=0;const step=Math.max(1,Math.round(1500/S.flowScore));
+  const t=setInterval(()=>{n=Math.min(n+1,S.flowScore);numEl.textContent=n;if(n>=S.flowScore)clearInterval(t);},step);
+
+  // Badge
+  const badge=document.getElementById('cat-badge');
+  badge.textContent=S.category;
+  badge.style.cssText=`background:${S.categoryColor}22;color:${S.categoryColor};border:1px solid ${S.categoryColor}55;`;
+
+  // Dra. msg
+  document.getElementById('dra-msg').textContent=S.drFlowMsg;
+
+  // Dimension diagnostics (replace old bars)
+  const dimData=[
+    {k:'performanceScore',icon:'💪',name:'Rendimiento',score:S.performanceScore},
+    {k:'nutritionScore',icon:'🥗',name:'Nutrición',score:S.nutritionScore},
+    {k:'recoveryScore',icon:'😴',name:'Recuperación',score:S.recoveryScore},
+    {k:'wellbeingScore',icon:'🧠',name:'Bienestar',score:S.wellbeingScore}
+  ];
+  const diagsEl=document.getElementById('dim-diags');
+  diagsEl.innerHTML=dimData.map(d=>`
+    <div class="dim-diag">
+      <div class="dim-diag-header">
+        <div class="dd-icon">${d.icon}</div>
+        <div class="dd-name">${d.name}</div>
+        <div class="dd-track"><div class="dd-fill" id="dd-${d.k}" style="background:${scoreColor(d.score)}"></div></div>
+        <div class="dd-pct" style="color:${scoreColor(d.score)}">${d.score}%</div>
+        <div class="dd-status" style="background:${scoreColor(d.score)}"></div>
+      </div>
+      <div class="dim-diag-txt">${getDiagnosis(d.k)}</div>
+    </div>
+  `).join('');
+  // Animate bars
+  dimData.forEach((d,i)=>{
+    setTimeout(()=>{
+      const el=document.getElementById('dd-'+d.k);
+      if(el) el.style.width=d.score+'%';
+    },500+i*180);
+  });
+
+  // Insights
+  const insights=getInsights();
+  document.getElementById('insights-list').innerHTML=insights.length
+    ?insights.map(ins=>`<div class="insight-card"><div class="insight-icon">${ins.icon}</div><div class="insight-txt">${ins.txt}</div></div>`).join('')
+    :'<p class="micro">Tu perfil es sólido — no se detectaron patrones de riesgo significativos.</p>';
+
+  // Top product
+  const tp=document.getElementById('top-prod');
+  if(S.topProduct){
+    const timing=PRODUCT_TIMING[S.topProduct.id]||'';
+    tp.innerHTML=`<div class="prod-card"><div class="prod-lbl">⭐ Recomendación principal de la Dra. Flow</div><div class="prod-name">${S.topProduct.name}</div><p class="prod-txt">${ptxt(S.topProduct)}</p>${timing?`<div class="prod-timing">${timing}</div>`:''}</div>`;
+  }else{
+    tp.innerHTML=`<div class="prod-card"><div class="prod-lbl">⭐ Dra. Flow</div><div class="prod-name">¡Perfil sobresaliente!</div><p class="prod-txt">Tu estado general es muy bueno. La Dra. Flow te recomendará un plan de mantenimiento en tu consulta personalizada.</p></div>`;
+  }
+
+  // Email gate title
+  document.getElementById('eg-title').textContent=`Tu plan de acción está listo, ${S.userName}`;
+}
+
+// ─── EMAIL SUBMIT ─────────────────────────────────────────────────────
+function submitEmail(){
+  const inp=document.getElementById('email-inp');
+  const errEl=document.getElementById('email-err');
+  const email=inp.value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  const body=new URLSearchParams({
+    'entry.1408137408':S.userName,
+    'entry.894222970':email,
+    'entry.257002644':S.flowScore,
+    'entry.571933020':S.category,
+    'entry.945716550':S.goal
+  });
+  fetch(GFORM,{method:'POST',mode:'no-cors',body}).catch(()=>{});
+
+  const gate=document.getElementById('email-gate');
+  gate.style.transition='opacity .3s';gate.style.opacity='0';
+  setTimeout(()=>{
+    gate.style.display='none';
+    const ok=document.getElementById('email-ok');
+    ok.textContent=`✅ Listo, ${S.userName}. Tu informe llegará en los próximos minutos.`;
+    ok.style.display='block';
+    showPhase2();
+  },300);
+}
+
+function showPhase2(){
+  // Action plan
+  const plan=getActionPlan();
+  document.getElementById('action-plan').innerHTML=plan.map(area=>`
+    <div class="action-area">
+      <div class="action-area-header">${area.icon} ${area.name}</div>
+      ${area.tips.map(tip=>`<div class="action-tip"><span>${tip}</span></div>`).join('')}
+    </div>
+  `).join('');
+
+  // Remaining products with timing
+  const remEl=document.getElementById('rem-prods');
+  remEl.innerHTML=S.remProducts.length
+    ?S.remProducts.map(p=>{
+        const timing=PRODUCT_TIMING[p.id]||'';
+        return `<div class="prod-card sec"><div class="prod-name">${p.name}</div><p class="prod-txt">${ptxt(p)}</p>${timing?`<div class="prod-timing">${timing}</div>`:''}</div>`;
+      }).join('')
+    :'';
+
+  // Medical disclaimer
+  const disc=document.getElementById('med-disc');
+  disc.innerHTML=(S.medicalFlag==='meds'||S.medicalFlag==='chronic')
+    ?`<div class="disc">⚕️ <strong>Importante:</strong> Te recomendamos consultar con tu médico antes de iniciar cualquier suplementación.</div>`
+    :'';
+
+  // Reveal phase2
+  const ph=document.getElementById('phase2');
+  ph.classList.add('on');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    ph.style.opacity='1';
+    ph.querySelectorAll('.prod-card').forEach((c,i)=>{
+      c.style.cssText='opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease;';
+      setTimeout(()=>{c.style.opacity='1';c.style.transform='translateY(0)';},80+i*150);
+    });
+  }));
+}
+
+// ─── PARTICLES ────────────────────────────────────────────────────────
+function spawnParticles(){
+  const c=document.getElementById('pcontainer');
+  c.innerHTML='';
+  for(let i=0;i<14;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const sz=Math.random()*10+4;
+    p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;`+
+      `animation-duration:${Math.random()*8+6}s;animation-delay:${Math.random()*8}s;opacity:0;position:absolute;`;
+    c.appendChild(p);
+  }
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>go('s0'));
+</script>
+</body>
+</html>
