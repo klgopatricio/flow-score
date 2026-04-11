@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 /* ─── RESET & TOKENS ─────────────────────────────── */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
@@ -651,7 +653,7 @@ input::placeholder{color:rgba(245,240,232,.28);}
     <h2 id="eg-title" style="font-size:1.3rem;line-height:1.2;"></h2>
     <div class="dra mt12">
       <div class="dra-hd">🥼 Dra. Flow</div>
-      <p>Ingresa tu email y te enviamos tu plan de acción completo con el protocolo de suplementación personalizado de la Dra. Flow.</p>
+      <p>Ingresa tu email para desbloquear tu plan completo y descargar tu informe PDF personalizado de la Dra. Flow.</p>
     </div>
     <input type="email" id="email-inp" placeholder="tu@email.com" style="margin-top:12px;">
     <div class="email-err" id="email-err">Por favor ingresa un email válido.</div>
@@ -691,6 +693,11 @@ input::placeholder{color:rgba(245,240,232,.28);}
 <script>
 // ─── GOOGLE FORM ENDPOINT ─────────────────────────────────────────────
 const GFORM = 'https://docs.google.com/forms/u/0/d/e/1FAIpQLScTe8imTPhrVq7aG8fVWySz2rjfZ69ApjcYe-TINnU9m9kYWg/formResponse';
+
+// ─── EMAILJS CONFIG ───────────────────────────────────────────────────
+const EJS_SERVICE  = 'YOUR_SERVICE_ID';
+const EJS_TEMPLATE = 'YOUR_TEMPLATE_ID';
+const EJS_KEY      = 'YOUR_PUBLIC_KEY';
 
 // ─── PROGRESS CONFIG ─────────────────────────────────────────────────
 const PROG = {s0:0,s1:.08,s1b:.08,s2:.20,s3:.38,sh:.52,s4:.64,s5:.76,s6:.90,s7:1};
@@ -1168,12 +1175,15 @@ function submitEmail(){
   });
   fetch(GFORM,{method:'POST',mode:'no-cors',body}).catch(()=>{});
 
+  generatePDF();
+  sendEmail(email);
+
   const gate=document.getElementById('email-gate');
   gate.style.transition='opacity .3s';gate.style.opacity='0';
   setTimeout(()=>{
     gate.style.display='none';
     const ok=document.getElementById('email-ok');
-    ok.textContent=`✅ Listo, ${S.userName}. Tu informe llegará en los próximos minutos.`;
+    ok.innerHTML=`✅ <strong>${S.userName}</strong>, tu informe PDF se está descargando ahora.<br><span style="font-size:.8rem;opacity:.7">Guarda el PDF — contiene tu protocolo completo de la Dra. Flow.</span>`;
     ok.style.display='block';
     showPhase2();
   },300);
@@ -1228,6 +1238,132 @@ function spawnParticles(){
       `animation-duration:${Math.random()*8+6}s;animation-delay:${Math.random()*8}s;opacity:0;position:absolute;`;
     c.appendChild(p);
   }
+}
+
+// ─── PDF GENERATOR ────────────────────────────────────────────────────
+function generatePDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,margin=18;
+  const dg=[28,43,30],cream=[245,240,232],gold=[201,168,76],acc=[74,124,89],gray=[160,155,148];
+
+  // Header
+  doc.setFillColor(...dg);
+  doc.rect(0,0,W,42,'F');
+  doc.setFillColor(...gold);
+  doc.rect(0,38,W,1.5,'F');
+  doc.setTextColor(...gold);
+  doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('FLOW NUTRITION',W/2,14,{align:'center'});
+  doc.setTextColor(...cream);
+  doc.setFontSize(20);
+  doc.text('Flow Performance Lab',W/2,26,{align:'center'});
+  doc.setFontSize(8);doc.setTextColor(...gold);
+  doc.text('INFORME PERSONALIZADO DE RENDIMIENTO',W/2,34,{align:'center'});
+
+  // User + date
+  let y=52;
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(...dg);
+  doc.text(`Preparado para: ${S.userName}`,margin,y);
+  doc.text(`Fecha: ${new Date().toLocaleDateString('es-CL')}`,W-margin,y,{align:'right'});
+
+  // Score box
+  y=62;
+  doc.setFillColor(...dg);
+  doc.roundedRect(margin,y,W-margin*2,32,4,4,'F');
+  doc.setTextColor(...gold);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text('FLOW SCORE',W/2,y+9,{align:'center'});
+  doc.setTextColor(...cream);doc.setFontSize(32);
+  doc.text(`${S.flowScore}`,W/2,y+22,{align:'center'});
+  doc.setFontSize(8);doc.setTextColor(...gold);
+  doc.text(S.category.toUpperCase(),W/2,y+29,{align:'center'});
+
+  // Sub-scores
+  y=102;
+  doc.setTextColor(...dg);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text('DIAGNÓSTICO POR ÁREA',margin,y);
+  y+=6;
+  const dims=[
+    {name:'Rendimiento',val:S.performanceScore,icon:'💪'},
+    {name:'Nutrición',val:S.nutritionScore,icon:'🥗'},
+    {name:'Recuperación',val:S.recoveryScore,icon:'😴'},
+    {name:'Bienestar',val:S.wellbeingScore,icon:'🧠'}
+  ];
+  dims.forEach(d=>{
+    const barW=W-margin*2-30;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...dg);
+    doc.text(`${d.name}`,margin,y+4);
+    doc.text(`${Math.round(d.val)}%`,W-margin,y+4,{align:'right'});
+    doc.setFillColor(220,220,215);
+    doc.roundedRect(margin+28,y,barW,5,2,2,'F');
+    const col=d.val>=70?acc:d.val>=45?[212,160,23]:[192,57,43];
+    doc.setFillColor(...col);
+    doc.roundedRect(margin+28,y,(barW*d.val/100),5,2,2,'F');
+    y+=11;
+  });
+
+  // Top product
+  y+=4;
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...dg);
+  doc.text('RECOMENDACIÓN PRINCIPAL',margin,y);
+  y+=5;
+  if(S.topProduct){
+    doc.setFillColor(...acc);
+    doc.roundedRect(margin,y,W-margin*2,18,3,3,'F');
+    doc.setTextColor(...cream);doc.setFontSize(11);doc.setFont('helvetica','bold');
+    doc.text(S.topProduct.name,margin+5,y+8);
+    doc.setFontSize(7);doc.setFont('helvetica','normal');
+    const txt=doc.splitTextToSize(S.topProduct.txt||'',W-margin*2-10);
+    doc.text(txt,margin+5,y+13);
+    y+=22;
+  }
+
+  // Action plan
+  y+=4;
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...dg);
+  doc.text('PLAN DE ACCIÓN — PRIMERAS 2 SEMANAS',margin,y);y+=5;
+  const plan=getActionPlan();
+  plan.forEach(area=>{
+    if(y>255){doc.addPage();y=20;}
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(...acc);
+    doc.text(`${area.icon} ${area.name}`,margin,y);y+=4;
+    area.tips.slice(0,2).forEach(tip=>{
+      const lines=doc.splitTextToSize(`• ${tip}`,W-margin*2-4);
+      doc.setFont('helvetica','normal');doc.setTextColor(...dg);doc.setFontSize(7.5);
+      doc.text(lines,margin+3,y);
+      y+=lines.length*4+1;
+    });
+    y+=2;
+  });
+
+  // Footer
+  doc.setFillColor(...dg);
+  doc.rect(0,285,W,12,'F');
+  doc.setTextColor(...gold);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('flownutrition.cl  |  @flow.nutrition.cl  |  app.flownutrition.cl',W/2,292,{align:'center'});
+
+  doc.save(`FlowScore-${S.userName.replace(/\s+/g,'-')}.pdf`);
+}
+
+// ─── EMAIL SENDER ──────────────────────────────────────────────────────
+function sendEmail(email){
+  if(EJS_SERVICE==='YOUR_SERVICE_ID')return;
+  emailjs.init(EJS_KEY);
+  const plan=getActionPlan();
+  const tips=plan.flatMap(a=>a.tips.slice(0,1)).slice(0,3).map(t=>`• ${t}`).join('\n');
+  emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{
+    to_email:email,
+    to_name:S.userName,
+    flow_score:S.flowScore,
+    categoria:S.category,
+    objetivo:S.goal,
+    top_product:S.topProduct?S.topProduct.name:'Tu perfil es sobresaliente',
+    rendimiento:Math.round(S.performanceScore)+'%',
+    nutricion:Math.round(S.nutritionScore)+'%',
+    recuperacion:Math.round(S.recoveryScore)+'%',
+    bienestar:Math.round(S.wellbeingScore)+'%',
+    plan_accion:tips
+  }).catch(()=>{});
 }
 
 // ─── BOOT ─────────────────────────────────────────────────────────────
